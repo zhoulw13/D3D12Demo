@@ -11,5 +11,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 	D3DApp app(hInstance);
 	app.Init();
 
+	app.Run();
+
 	return 0;
 }
