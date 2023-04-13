@@ -19,15 +19,15 @@ public:
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 public:
-	bool Init();
+	virtual bool Init();
 
 	int Run();
 
 protected:
-	void Update();
-	void Draw();
+	virtual void Update() = 0;
+	virtual void Draw() = 0;
 
-private:
+protected:
 	bool InitMainWindow();
 	bool InitD3D();
 	
@@ -45,7 +45,7 @@ private:
 
 	void CalculateFrameStats();
 
-private:
+protected:
 	static D3DApp *mApp;
 
 	GameTimer mTimer;

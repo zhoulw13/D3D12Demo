@@ -1,6 +1,7 @@
 
 
 #include "Common/d3dApp.h"
+#include "DemoApp.h"
 #include "d3d12.h"
 
 
@@ -8,7 +9,7 @@
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 	PSTR cmdLine, int showCmd)
 {
-	D3DApp app(hInstance);
+	DemoApp app(hInstance);
 	app.Init();
 
 	app.Run();

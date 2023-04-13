@@ -16,19 +16,25 @@
     <Filter Include="头文件\Common">
       <UniqueIdentifier>{d64ae802-9954-4b91-b1cf-1faaa9d3672f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\Common">
+      <UniqueIdentifier>{48241916-2084-4670-b6e4-6e79a09a5e3a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Common\d3dUtil.cpp">
+    <ClCompile Include="DemoApp.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Common\d3dApp.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\d3dUtil.cpp">
+      <Filter>源文件\Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\GameTimer.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -41,8 +47,14 @@
     <ClInclude Include="Common\d3dx12.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\GameTimer.h">
+    <ClInclude Include="DemoApp.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\GameTimer.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\UploadBuffer.h">
+      <Filter>头文件\Common</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
