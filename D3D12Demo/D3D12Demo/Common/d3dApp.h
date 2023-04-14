@@ -2,12 +2,14 @@
 
 #include "d3dUtil.h"
 #include "GameTimer.h"
+#include "MathHelper.h"
 
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
 #pragma comment(lib, "dxgi.lib")
 
 using Microsoft::WRL::ComPtr;
+using namespace DirectX;
 
 class D3DApp
 {
@@ -18,6 +20,8 @@ public:
 	
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+	float AspectRatio()const;
+
 public:
 	virtual bool Init();
 
@@ -27,11 +31,17 @@ protected:
 	virtual void Update() = 0;
 	virtual void Draw() = 0;
 
+
 protected:
 	bool InitMainWindow();
 	bool InitD3D();
 	
-	void OnResize();
+	virtual void OnResize();
+
+	// Convenience overrides for handling mouse input.
+	virtual void OnMouseDown(WPARAM btnState, int x, int y);
+	virtual void OnMouseUp(WPARAM btnState, int x, int y);
+	virtual void OnMouseMove(WPARAM btnState, int x, int y);
 
 	void FlushCommandQueue();
 
@@ -89,4 +99,10 @@ protected:
 	std::wstring mMainWndCaption = L"d3d demo";
 	int mClientWidth = 800;
 	int mClientHeight = 600;
+
+	POINT mLastMousePos;
+
+	float mTheta = 1.5f * XM_PI;
+	float mPhi = XM_PIDIV4;
+	float mRadius = 5.0f;
 };

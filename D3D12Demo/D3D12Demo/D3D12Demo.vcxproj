@@ -109,6 +109,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>VS</EntryPointName>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -130,6 +134,7 @@
     <ClCompile Include="Common\d3dApp.cpp" />
     <ClCompile Include="Common\d3dUtil.cpp" />
     <ClCompile Include="Common\GameTimer.cpp" />
+    <ClCompile Include="Common\MathHelper.cpp" />
     <ClCompile Include="DemoApp.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
@@ -138,6 +143,7 @@
     <ClInclude Include="Common\d3dUtil.h" />
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\GameTimer.h" />
+    <ClInclude Include="Common\MathHelper.h" />
     <ClInclude Include="Common\UploadBuffer.h" />
     <ClInclude Include="DemoApp.h" />
   </ItemGroup>
