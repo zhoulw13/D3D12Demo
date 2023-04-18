@@ -39,6 +39,9 @@
     <ClCompile Include="Common\MathHelper.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\FrameResource.cpp">
+      <Filter>源文件\Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\d3dApp.h">
@@ -60,6 +63,9 @@
       <Filter>头文件\Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\MathHelper.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FrameResource.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
   </ItemGroup>

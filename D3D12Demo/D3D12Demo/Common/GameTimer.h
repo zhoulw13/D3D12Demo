@@ -6,6 +6,7 @@ public:
 	GameTimer();
 
 	float TotalTime() const; //seconds
+	float DeltaTime() const; // in seconds
 
 	void Reset();
 	void Tick();

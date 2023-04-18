@@ -28,8 +28,8 @@ public:
 	int Run();
 
 protected:
-	virtual void Update() = 0;
-	virtual void Draw() = 0;
+	virtual void Update(const GameTimer &gt) = 0;
+	virtual void Draw(const GameTimer &gt) = 0;
 
 
 protected:

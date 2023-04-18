@@ -475,8 +475,8 @@ int D3DApp::Run()
 			//if (!mAppPaused)
 			{
 				CalculateFrameStats();
-				Update();
-				Draw();
+				Update(mTimer);
+				Draw(mTimer);
 			}
 			//else
 			//{

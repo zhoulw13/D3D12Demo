@@ -25,6 +25,11 @@ float GameTimer::TotalTime()const
 	return (float)((mCurrTime - mBaseTime) * mSecondsPerCount);
 }
 
+float GameTimer::DeltaTime()const
+{
+	return (float)mDeltaTime;
+}
+
 
 void GameTimer::Tick()
 {
