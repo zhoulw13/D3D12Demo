@@ -113,6 +113,9 @@
       <ShaderModel>5.0</ShaderModel>
       <EntryPointName>VS</EntryPointName>
     </FxCompile>
+    <PostBuildEvent>
+      <Command>xcopy "$(ProjectDir)\Shaders\*.hlsl" "$(OutDir)\Shaders\" /y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
