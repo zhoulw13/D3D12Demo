@@ -122,9 +122,14 @@ void DemoApp::Draw(const GameTimer& gt)
 
 	mCommandList->SetGraphicsRootDescriptorTable(0, mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 
+	//UINT cbvIndex = mCurrFrameResourceIndex * 1 + mAllRitems[0]->ObjCBIndex;
+	//auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
+	//cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
 
-	D3D12_VERTEX_BUFFER_VIEW vbv = mMeshGeo->VertexBufferView();
-	D3D12_INDEX_BUFFER_VIEW ibv = mMeshGeo->IndexBufferView();
+	//mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+
+	D3D12_VERTEX_BUFFER_VIEW vbv = mAllRitems[0]->Geo->VertexBufferView();
+	D3D12_INDEX_BUFFER_VIEW ibv = mAllRitems[0]->Geo->IndexBufferView();
 
 	mCommandList->IASetVertexBuffers(0, 1, &vbv);
 	mCommandList->IASetIndexBuffer(&ibv);
@@ -317,6 +322,10 @@ void DemoApp::BuildGeometry()
 void DemoApp::BuildRenderItems()
 {
 	auto boxRitem = std::make_unique<RenderItem>();
+	boxRitem->ObjCBIndex = 0;
+	boxRitem->IndexCount = mMeshGeo->DrawArgs["box"].IndexCount;
+	boxRitem->StartIndexLocation = mMeshGeo->DrawArgs["box"].StartIndexLocation;
+	boxRitem->BaseVertexLocation = mMeshGeo->DrawArgs["box"].BaseVertexLocation;
 	boxRitem->World = MathHelper::Identity4x4();
 	boxRitem->Geo = mMeshGeo.get();
 	mAllRitems.push_back(std::move(boxRitem));
@@ -375,7 +384,7 @@ void DemoApp::BuildConstantBuffers()
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
 		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = objCBByteSize;
+		cbvDesc.SizeInBytes = passCBByteSize;
 
 		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCbvHeap->GetCPUDescriptorHandleForHeapStart());
 		handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
