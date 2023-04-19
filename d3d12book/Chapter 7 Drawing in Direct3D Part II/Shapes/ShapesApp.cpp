@@ -446,7 +446,7 @@ void ShapesApp::BuildConstantBufferViews()
             handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
 
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-            cbvDesc.BufferLocation = cbAddress;
+            cbvDesc.BufferLocation = cbAddress+1;
             cbvDesc.SizeInBytes = objCBByteSize;
 
             md3dDevice->CreateConstantBufferView(&cbvDesc, handle);
