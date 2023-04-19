@@ -115,31 +115,12 @@ void DemoApp::Draw(const GameTimer& gt)
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mCbvHeap.Get() };
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-	int passCbvIndex = gNumFrameResources + mCurrFrameResourceIndex;
+	int passCbvIndex = mPassCbvOffset + mCurrFrameResourceIndex;
 	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 	passCbvHandle.Offset(passCbvIndex, mCbvSrvUavDescriptorSize);
 	mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
-	mCommandList->SetGraphicsRootDescriptorTable(0, mCbvHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//UINT cbvIndex = mCurrFrameResourceIndex * 1 + mAllRitems[0]->ObjCBIndex;
-	//auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
-	//cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
-
-	//mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
-
-	D3D12_VERTEX_BUFFER_VIEW vbv = mAllRitems[0]->Geo->VertexBufferView();
-	D3D12_INDEX_BUFFER_VIEW ibv = mAllRitems[0]->Geo->IndexBufferView();
-
-	mCommandList->IASetVertexBuffers(0, 1, &vbv);
-	mCommandList->IASetIndexBuffer(&ibv);
-
-	mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-
-
-	mCommandList->DrawIndexedInstanced(mMeshGeo->DrawArgs["box"].IndexCount, 1, 0, 0, 0);
-
+	DrawRenderItems();
 
 	// Indicate a state transition on the resource usage.
 	Barriers = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -176,7 +157,7 @@ void DemoApp::UpdateObjectCBs(const GameTimer& gt)
 			ObjectConstants objConstants;
 			XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
 
-			currObjectCB->CopyData(0, objConstants);
+			currObjectCB->CopyData(e->ObjCBIndex, objConstants);
 
 			// Next FrameResource need to be updated too.
 			e->NumFramesDirty--;
@@ -258,44 +239,39 @@ void DemoApp::BuildRootSignature()
 
 void DemoApp::BuildGeometry()
 {
-	std::array<Vertex, 8> vertices =
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 2.0f, 0.5f, 3);
+	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 50, 50);
+
+	SubmeshGeometry boxSubmesh;
+	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
+	boxSubmesh.StartIndexLocation = 0;
+	boxSubmesh.BaseVertexLocation = 0;
+
+	SubmeshGeometry sphereSubmesh;
+	sphereSubmesh.IndexCount = (UINT)sphere.Indices32.size();
+	sphereSubmesh.StartIndexLocation = (UINT)box.Indices32.size();
+	sphereSubmesh.BaseVertexLocation = (UINT)box.Vertices.size();
+
+	auto totalVertexSize = box.Vertices.size() + sphere.Vertices.size();
+
+	std::vector<Vertex> vertices(totalVertexSize);
+	UINT k = 0;
+	for (size_t i = 0; i < box.Vertices.size(); i++, k++)
 	{
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green) }),
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
-	};
+		vertices[k].Pos = box.Vertices[i].Position;
+		vertices[k].Color = XMFLOAT4(Colors::Yellow);
+	}
 
-	std::array<std::uint16_t, 36> indices =
+	for (size_t i = 0; i < sphere.Vertices.size(); i++, k++)
 	{
-		// front face
-		0, 1, 2,
-		0, 2, 3,
+		vertices[k].Pos = sphere.Vertices[i].Position;
+		vertices[k].Color = XMFLOAT4(Colors::Green);
+	}
 
-		// back face
-		4, 6, 5,
-		4, 7, 6,
-
-		// left face
-		4, 5, 1,
-		4, 1, 0,
-
-		// right face
-		3, 2, 6,
-		3, 6, 7,
-
-		// top face
-		1, 5, 6,
-		1, 6, 2,
-
-		// bottom face
-		4, 0, 3,
-		4, 3, 7
-	};
+	std::vector<uint16_t> indices;
+	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
+	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 
 	mMeshGeo = std::make_unique<MeshGeometry>();
 	mMeshGeo->Name = "example";
@@ -311,12 +287,8 @@ void DemoApp::BuildGeometry()
 	mMeshGeo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	mMeshGeo->IndexBufferByteSize = ibByteSize;
 
-	SubmeshGeometry submesh;
-	submesh.IndexCount = (UINT)indices.size();
-	submesh.StartIndexLocation = 0;
-	submesh.BaseVertexLocation = 0;
-
-	mMeshGeo->DrawArgs["box"] = submesh;
+	mMeshGeo->DrawArgs["box"] = boxSubmesh;
+	mMeshGeo->DrawArgs["sphere"] = sphereSubmesh;
 }
 
 void DemoApp::BuildRenderItems()
@@ -324,11 +296,24 @@ void DemoApp::BuildRenderItems()
 	auto boxRitem = std::make_unique<RenderItem>();
 	boxRitem->ObjCBIndex = 0;
 	boxRitem->IndexCount = mMeshGeo->DrawArgs["box"].IndexCount;
+	boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	boxRitem->StartIndexLocation = mMeshGeo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = mMeshGeo->DrawArgs["box"].BaseVertexLocation;
 	boxRitem->World = MathHelper::Identity4x4();
 	boxRitem->Geo = mMeshGeo.get();
+
+	XMMATRIX sphereWorld = XMMatrixTranslation(-1.0f, 1.5f, 0.0f);
+	auto sphereRitem = std::make_unique<RenderItem>();
+	sphereRitem->ObjCBIndex = 1;
+	sphereRitem->IndexCount = mMeshGeo->DrawArgs["sphere"].IndexCount;
+	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	sphereRitem->StartIndexLocation = mMeshGeo->DrawArgs["sphere"].StartIndexLocation;
+	sphereRitem->BaseVertexLocation = mMeshGeo->DrawArgs["sphere"].BaseVertexLocation;
+	sphereRitem->Geo = mMeshGeo.get();
+	XMStoreFloat4x4(&sphereRitem->World, sphereWorld);
+
 	mAllRitems.push_back(std::move(boxRitem));
+	mAllRitems.push_back(std::move(sphereRitem));
 }
 
 void DemoApp::BuildFrameResource()
@@ -341,11 +326,15 @@ void DemoApp::BuildFrameResource()
 
 void DemoApp::BuildConstantBuffers()
 {
+	UINT objCount = mAllRitems.size();
+
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = 2 * gNumFrameResources;
+	cbvHeapDesc.NumDescriptors = (objCount+1) * gNumFrameResources;
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	cbvHeapDesc.NodeMask = 0;
+
+	mPassCbvOffset = objCount * gNumFrameResources;
 
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCbvHeap)));
 
@@ -354,20 +343,22 @@ void DemoApp::BuildConstantBuffers()
 	for (int frameIdx = 0; frameIdx < gNumFrameResources; frameIdx++)
 	{
 		auto objectCB = mFrameResources[frameIdx]->ObjectCB->Resource();
+		for (UINT i = 0; i < objCount; i++)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectCB->GetGPUVirtualAddress();
 
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectCB->GetGPUVirtualAddress();
+			int heapIndex = frameIdx * objCount + i;
+			cbAddress += i * objCBByteSize;
 
-		int heapIndex = 0;
-		cbAddress += heapIndex * objCBByteSize;
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+			cbvDesc.BufferLocation = cbAddress;
+			cbvDesc.SizeInBytes = objCBByteSize;
 
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = objCBByteSize;
+			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCbvHeap->GetCPUDescriptorHandleForHeapStart());
+			handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
 
-		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCbvHeap->GetCPUDescriptorHandleForHeapStart());
-		handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
-
-		md3dDevice->CreateConstantBufferView(&cbvDesc, handle);
+			md3dDevice->CreateConstantBufferView(&cbvDesc, handle);
+		}
 	}
 
 	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
@@ -379,8 +370,7 @@ void DemoApp::BuildConstantBuffers()
 
 		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
 
-		int heapIndex = gNumFrameResources + frameIdx;
-		//cbAddress += heapIndex * objCBByteSize;
+		int heapIndex = mPassCbvOffset + frameIdx;
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
 		cbvDesc.BufferLocation = cbAddress;
@@ -423,7 +413,7 @@ void DemoApp::BuildPSO()
 	};
 
 	D3D12_RASTERIZER_DESC rasterizerDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+	rasterizerDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
 
 	psoDesc.RasterizerState = rasterizerDesc;
@@ -437,4 +427,29 @@ void DemoApp::BuildPSO()
 	psoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
 	psoDesc.DSVFormat = mDepthStencilFormat;
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO)));
+}
+
+void DemoApp::DrawRenderItems()
+{
+	auto objCount = mAllRitems.size();
+
+	for (int i = 0; i < objCount; i++)
+	{
+		auto Ritem = mAllRitems[i].get();
+		D3D12_VERTEX_BUFFER_VIEW vbv = Ritem->Geo->VertexBufferView();
+		D3D12_INDEX_BUFFER_VIEW ibv = Ritem->Geo->IndexBufferView();
+
+		mCommandList->IASetVertexBuffers(0, 1, &vbv);
+		mCommandList->IASetIndexBuffer(&ibv);
+		mCommandList->IASetPrimitiveTopology(Ritem->PrimitiveType);
+
+		UINT cbvIndex = mCurrFrameResourceIndex * objCount + Ritem->ObjCBIndex;
+		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
+		cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
+		mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+
+		mCommandList->DrawIndexedInstanced(Ritem->IndexCount, 1, Ritem->StartIndexLocation, Ritem->BaseVertexLocation, 0);
+	}
+
+	
 }

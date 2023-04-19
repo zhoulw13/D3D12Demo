@@ -3,6 +3,7 @@
 #include "Common/d3dApp.h"
 #include "Common/UploadBuffer.h"
 #include "Common/FrameResource.h"
+#include "Common/GeometryGenerator.h"
 
 #include <DirectXColors.h>
 using namespace DirectX;
@@ -63,6 +64,8 @@ protected:
 	void BuildFrameResource();
 	void BuildRenderItems();
 
+	void DrawRenderItems();
+
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
 
@@ -91,4 +94,6 @@ protected:
 	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
+
+	UINT mPassCbvOffset = 0;
 };
