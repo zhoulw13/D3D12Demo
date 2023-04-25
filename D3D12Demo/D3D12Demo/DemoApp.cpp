@@ -4,7 +4,7 @@
 DemoApp::DemoApp(HINSTANCE hInstance)
 	:D3DApp(hInstance)
 {
-	
+
 }
 
 bool DemoApp::Init()
@@ -241,7 +241,8 @@ void DemoApp::BuildGeometry()
 {
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 2.0f, 0.5f, 3);
-	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 50, 50);
+	//GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 10, 10);
+	GeometryGenerator::MeshData sphere = geoGen.CreateGeosphere(0.5f, 1);
 
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
@@ -326,10 +327,10 @@ void DemoApp::BuildFrameResource()
 
 void DemoApp::BuildConstantBuffers()
 {
-	UINT objCount = mAllRitems.size();
+	UINT objCount = (UINT)mAllRitems.size();
 
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = (objCount+1) * gNumFrameResources;
+	cbvHeapDesc.NumDescriptors = (objCount + 1) * gNumFrameResources;
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	cbvHeapDesc.NodeMask = 0;
@@ -431,9 +432,9 @@ void DemoApp::BuildPSO()
 
 void DemoApp::DrawRenderItems()
 {
-	auto objCount = mAllRitems.size();
+	auto objCount = (UINT)mAllRitems.size();
 
-	for (int i = 0; i < objCount; i++)
+	for (UINT i = 0; i < objCount; i++)
 	{
 		auto Ritem = mAllRitems[i].get();
 		D3D12_VERTEX_BUFFER_VIEW vbv = Ritem->Geo->VertexBufferView();
@@ -443,13 +444,11 @@ void DemoApp::DrawRenderItems()
 		mCommandList->IASetIndexBuffer(&ibv);
 		mCommandList->IASetPrimitiveTopology(Ritem->PrimitiveType);
 
-		UINT cbvIndex = mCurrFrameResourceIndex * objCount + Ritem->ObjCBIndex;
+		UINT cbvIndex = mCurrFrameResourceIndex * objCount + (UINT)Ritem->ObjCBIndex;
 		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
 		mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 
 		mCommandList->DrawIndexedInstanced(Ritem->IndexCount, 1, Ritem->StartIndexLocation, Ritem->BaseVertexLocation, 0);
 	}
-
-	
 }
