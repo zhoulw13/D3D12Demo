@@ -79,6 +79,7 @@ void DemoApp::Update(const GameTimer& gt)
 
 	UpdateObjectCBs(gt);
 	UpdateMainPassCB(gt);
+	UpdateGeometry(gt);
 }
 
 void DemoApp::Draw(const GameTimer& gt)
@@ -201,6 +202,22 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	mCurrFrameResource->PassCB->CopyData(0, mMainPassCB);
 }
 
+void DemoApp::UpdateGeometry(const GameTimer& gt)
+{
+	//mMeshGeo->VertexBufferGPU = 
+	auto CurrVertexVB = mCurrFrameResource->DynamicVertex.get();
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		Vertex v;
+		v.Pos = vertices[i].Pos;
+		v.Pos.x += std::sin(gt.TotalTime());
+		v.Color = vertices[i].Color;
+		
+		CurrVertexVB->CopyData(i, v);
+	}
+	mMeshGeo->VertexBufferGPU = CurrVertexVB->Resource();
+}
+
 void DemoApp::BuildRootSignature()
 {
 	// Shader programs typically require resources as input (constant buffers,
@@ -259,9 +276,10 @@ void DemoApp::BuildGeometry()
 	sphereSubmesh.StartIndexLocation = (UINT)box.Indices32.size();
 	sphereSubmesh.BaseVertexLocation = (UINT)box.Vertices.size();
 
-	auto totalVertexSize = box.Vertices.size() + sphere.Vertices.size();
+	totalVertexSize = box.Vertices.size() + sphere.Vertices.size();
 
-	std::vector<Vertex> vertices(totalVertexSize);
+	//std::vector<Vertex> vertices(totalVertexSize);
+	vertices.resize(totalVertexSize);
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size(); i++, k++)
 	{
@@ -285,7 +303,7 @@ void DemoApp::BuildGeometry()
 	vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 	ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
 
-	mMeshGeo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(), vertices.data(), vbByteSize, mMeshGeo->VertexBufferUploader);
+	//mMeshGeo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(), vertices.data(), vbByteSize, mMeshGeo->VertexBufferUploader);
 	mMeshGeo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(), indices.data(), ibByteSize, mMeshGeo->IndexBufferUploader);
 
 	mMeshGeo->VertexByteStride = sizeof(Vertex);
@@ -326,7 +344,7 @@ void DemoApp::BuildFrameResource()
 {
 	for (int i = 0; i < gNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), 1, mAllRitems.size()));
+		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), 1, mAllRitems.size(), totalVertexSize));
 	}
 }
 

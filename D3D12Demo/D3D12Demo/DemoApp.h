@@ -10,12 +10,6 @@ using namespace DirectX;
 
 const int gNumFrameResources = 3;
 
-struct Vertex
-{
-	XMFLOAT3 Pos;
-	XMFLOAT4 Color;
-};
-
 struct RenderItem
 {
 	RenderItem() = default;
@@ -68,6 +62,7 @@ protected:
 
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
+	void UpdateGeometry(const GameTimer& gt);
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
@@ -96,4 +91,7 @@ protected:
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
 
 	UINT mPassCbvOffset = 0;
+
+	std::vector<Vertex> vertices;
+	UINT totalVertexSize = 0;
 };
