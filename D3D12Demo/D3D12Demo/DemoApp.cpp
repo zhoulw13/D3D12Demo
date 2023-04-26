@@ -19,7 +19,7 @@ bool DemoApp::Init()
 	BuildGeometry();
 	BuildRenderItems();
 	BuildFrameResource();
-	BuildConstantBuffers();
+	//BuildConstantBuffers();
 	BuildPSO();
 
 	// Execute the initialization commands.
@@ -112,13 +112,15 @@ void DemoApp::Draw(const GameTimer& gt)
 
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mCbvHeap.Get() };
-	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	//ID3D12DescriptorHeap* descriptorHeaps[] = { mCbvHeap.Get() };
+	//mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-	int passCbvIndex = mPassCbvOffset + mCurrFrameResourceIndex;
-	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
-	passCbvHandle.Offset(passCbvIndex, mCbvSrvUavDescriptorSize);
-	mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+	//int passCbvIndex = mPassCbvOffset + mCurrFrameResourceIndex;
+	//auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
+	//passCbvHandle.Offset(passCbvIndex, mCbvSrvUavDescriptorSize);
+	//mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+	auto passCB = mCurrFrameResource->PassCB->Resource();
+	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
 	DrawRenderItems();
 
@@ -210,15 +212,18 @@ void DemoApp::BuildRootSignature()
 	// Root parameter can be a table, root descriptor or root constants.
 	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
 
-	// Create a single descriptor table of CBVs.
-	CD3DX12_DESCRIPTOR_RANGE cbvTable;
-	cbvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	//// Create a single descriptor table of CBVs.
+	//CD3DX12_DESCRIPTOR_RANGE cbvTable;
+	//cbvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
 
-	CD3DX12_DESCRIPTOR_RANGE cbvTable2;
-	cbvTable2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+	//CD3DX12_DESCRIPTOR_RANGE cbvTable2;
+	//cbvTable2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
 
-	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable);
-	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable2);
+	//slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable);
+	//slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable2);
+
+	slotRootParameter[0].InitAsConstantBufferView(0);
+	slotRootParameter[1].InitAsConstantBufferView(1);
 
 	// A root signature is an array of root parameters.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -434,6 +439,9 @@ void DemoApp::DrawRenderItems()
 {
 	auto objCount = (UINT)mAllRitems.size();
 
+	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
+	UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
+
 	for (UINT i = 0; i < objCount; i++)
 	{
 		auto Ritem = mAllRitems[i].get();
@@ -444,10 +452,13 @@ void DemoApp::DrawRenderItems()
 		mCommandList->IASetIndexBuffer(&ibv);
 		mCommandList->IASetPrimitiveTopology(Ritem->PrimitiveType);
 
-		UINT cbvIndex = mCurrFrameResourceIndex * objCount + (UINT)Ritem->ObjCBIndex;
-		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
-		cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
-		mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+		//UINT cbvIndex = mCurrFrameResourceIndex * objCount + (UINT)Ritem->ObjCBIndex;
+		//auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
+		//cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
+		//mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+		D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress();
+		objCBAddress += Ritem->ObjCBIndex * objCBByteSize;
+		mCommandList->SetGraphicsRootConstantBufferView(0, objCBAddress);
 
 		mCommandList->DrawIndexedInstanced(Ritem->IndexCount, 1, Ritem->StartIndexLocation, Ritem->BaseVertexLocation, 0);
 	}
