@@ -45,6 +45,9 @@
     <ClCompile Include="Common\GeometryGenerator.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\MeshReader.cpp">
+      <Filter>源文件\Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\d3dApp.h">
@@ -72,6 +75,12 @@
       <Filter>头文件\Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\GeometryGenerator.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\MeshReader.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Util.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
   </ItemGroup>

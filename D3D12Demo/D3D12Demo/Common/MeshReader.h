@@ -1,7 +1,13 @@
 #pragma once
 
+#include "Util.h"
+#include <vector>
+#include <string>
+#include <fstream>
+#include <iostream>
+
 class MeshReader
 {
 public:
-	static void LoadFromTxt();
+	static void LoadFromTxt(const std::string filename, std::vector<Vertex> &vertices, std::vector<uint16_t> &indices);
 };

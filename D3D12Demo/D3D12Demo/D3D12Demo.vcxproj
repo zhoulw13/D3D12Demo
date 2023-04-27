@@ -114,7 +114,8 @@
       <EntryPointName>VS</EntryPointName>
     </FxCompile>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)\Shaders\*.hlsl" "$(OutDir)\Shaders\" /y</Command>
+      <Command>xcopy "$(ProjectDir)\Shaders\*.hlsl" "$(OutDir)\Shaders\" /y
+xcopy "$(ProjectDir)\Mesh\*" "$(OutDir)\Mesh\" /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -140,6 +141,7 @@
     <ClCompile Include="Common\GameTimer.cpp" />
     <ClCompile Include="Common\GeometryGenerator.cpp" />
     <ClCompile Include="Common\MathHelper.cpp" />
+    <ClCompile Include="Common\MeshReader.cpp" />
     <ClCompile Include="DemoApp.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
@@ -151,7 +153,9 @@
     <ClInclude Include="Common\GameTimer.h" />
     <ClInclude Include="Common\GeometryGenerator.h" />
     <ClInclude Include="Common\MathHelper.h" />
+    <ClInclude Include="Common\MeshReader.h" />
     <ClInclude Include="Common\UploadBuffer.h" />
+    <ClInclude Include="Common\Util.h" />
     <ClInclude Include="DemoApp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

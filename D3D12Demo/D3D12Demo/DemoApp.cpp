@@ -1,4 +1,5 @@
 #include "DemoApp.h"
+#include "Common/MeshReader.h"
 
 
 DemoApp::DemoApp(HINSTANCE hInstance)
@@ -210,7 +211,7 @@ void DemoApp::UpdateGeometry(const GameTimer& gt)
 	{
 		Vertex v;
 		v.Pos = vertices[i].Pos;
-		v.Pos.x += std::sin(gt.TotalTime());
+		//v.Pos.x += std::sin(gt.TotalTime());
 		v.Color = vertices[i].Color;
 		
 		CurrVertexVB->CopyData(i, v);
@@ -261,41 +262,52 @@ void DemoApp::BuildRootSignature()
 
 void DemoApp::BuildGeometry()
 {
-	GeometryGenerator geoGen;
-	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 2.0f, 0.5f, 3);
-	//GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 10, 10);
-	GeometryGenerator::MeshData sphere = geoGen.CreateGeosphere(0.5f, 1);
+	std::vector<uint16_t> indices;
+	MeshReader::LoadFromTxt("Mesh/skull.txt", vertices, indices);
 
-	SubmeshGeometry boxSubmesh;
-	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
-	boxSubmesh.StartIndexLocation = 0;
-	boxSubmesh.BaseVertexLocation = 0;
+	std::cout << vertices.size() << " " << indices.size() << std::endl;
 
-	SubmeshGeometry sphereSubmesh;
-	sphereSubmesh.IndexCount = (UINT)sphere.Indices32.size();
-	sphereSubmesh.StartIndexLocation = (UINT)box.Indices32.size();
-	sphereSubmesh.BaseVertexLocation = (UINT)box.Vertices.size();
+	totalVertexSize = vertices.size();
 
-	totalVertexSize = box.Vertices.size() + sphere.Vertices.size();
+	//GeometryGenerator geoGen;
+	//GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 2.0f, 0.5f, 3);
+	////GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 10, 10);
+	//GeometryGenerator::MeshData sphere = geoGen.CreateGeosphere(0.5f, 1);
+
+	//SubmeshGeometry boxSubmesh;
+	//boxSubmesh.IndexCount = (UINT)box.Indices32.size();
+	//boxSubmesh.StartIndexLocation = 0;
+	//boxSubmesh.BaseVertexLocation = 0;
+
+	//SubmeshGeometry sphereSubmesh;
+	//sphereSubmesh.IndexCount = (UINT)sphere.Indices32.size();
+	//sphereSubmesh.StartIndexLocation = (UINT)box.Indices32.size();
+	//sphereSubmesh.BaseVertexLocation = (UINT)box.Vertices.size();
+
+	SubmeshGeometry skullSubmesh;
+	skullSubmesh.IndexCount = (UINT)indices.size();
+	skullSubmesh.StartIndexLocation = 0;
+	skullSubmesh.BaseVertexLocation = 0;
+
+	//totalVertexSize = box.Vertices.size() + sphere.Vertices.size();
 
 	//std::vector<Vertex> vertices(totalVertexSize);
-	vertices.resize(totalVertexSize);
-	UINT k = 0;
-	for (size_t i = 0; i < box.Vertices.size(); i++, k++)
-	{
-		vertices[k].Pos = box.Vertices[i].Position;
-		vertices[k].Color = XMFLOAT4(Colors::Yellow);
-	}
+	//vertices.resize(totalVertexSize);
+	//UINT k = 0;
+	//for (size_t i = 0; i < box.Vertices.size(); i++, k++)
+	//{
+	//	vertices[k].Pos = box.Vertices[i].Position;
+	//	vertices[k].Color = XMFLOAT4(Colors::Yellow);
+	//}
 
-	for (size_t i = 0; i < sphere.Vertices.size(); i++, k++)
-	{
-		vertices[k].Pos = sphere.Vertices[i].Position;
-		vertices[k].Color = XMFLOAT4(Colors::Green);
-	}
+	//for (size_t i = 0; i < sphere.Vertices.size(); i++, k++)
+	//{
+	//	vertices[k].Pos = sphere.Vertices[i].Position;
+	//	vertices[k].Color = XMFLOAT4(Colors::Green);
+	//}
 
-	std::vector<uint16_t> indices;
-	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
-	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
+	//indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
+	//indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 
 	mMeshGeo = std::make_unique<MeshGeometry>();
 	mMeshGeo->Name = "example";
@@ -311,33 +323,46 @@ void DemoApp::BuildGeometry()
 	mMeshGeo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	mMeshGeo->IndexBufferByteSize = ibByteSize;
 
-	mMeshGeo->DrawArgs["box"] = boxSubmesh;
-	mMeshGeo->DrawArgs["sphere"] = sphereSubmesh;
+	//mMeshGeo->DrawArgs["box"] = boxSubmesh;
+	//mMeshGeo->DrawArgs["sphere"] = sphereSubmesh;
+
+	mMeshGeo->DrawArgs["skull"] = skullSubmesh;
 }
 
 void DemoApp::BuildRenderItems()
 {
-	auto boxRitem = std::make_unique<RenderItem>();
-	boxRitem->ObjCBIndex = 0;
-	boxRitem->IndexCount = mMeshGeo->DrawArgs["box"].IndexCount;
-	boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	boxRitem->StartIndexLocation = mMeshGeo->DrawArgs["box"].StartIndexLocation;
-	boxRitem->BaseVertexLocation = mMeshGeo->DrawArgs["box"].BaseVertexLocation;
-	boxRitem->World = MathHelper::Identity4x4();
-	boxRitem->Geo = mMeshGeo.get();
+	//auto boxRitem = std::make_unique<RenderItem>();
+	//boxRitem->ObjCBIndex = 0;
+	//boxRitem->IndexCount = mMeshGeo->DrawArgs["box"].IndexCount;
+	//boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//boxRitem->StartIndexLocation = mMeshGeo->DrawArgs["box"].StartIndexLocation;
+	//boxRitem->BaseVertexLocation = mMeshGeo->DrawArgs["box"].BaseVertexLocation;
+	//boxRitem->World = MathHelper::Identity4x4();
+	//boxRitem->Geo = mMeshGeo.get();
 
-	XMMATRIX sphereWorld = XMMatrixTranslation(-1.0f, 1.5f, 0.0f);
-	auto sphereRitem = std::make_unique<RenderItem>();
-	sphereRitem->ObjCBIndex = 1;
-	sphereRitem->IndexCount = mMeshGeo->DrawArgs["sphere"].IndexCount;
-	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	sphereRitem->StartIndexLocation = mMeshGeo->DrawArgs["sphere"].StartIndexLocation;
-	sphereRitem->BaseVertexLocation = mMeshGeo->DrawArgs["sphere"].BaseVertexLocation;
-	sphereRitem->Geo = mMeshGeo.get();
-	XMStoreFloat4x4(&sphereRitem->World, sphereWorld);
+	//XMMATRIX sphereWorld = XMMatrixTranslation(-1.0f, 1.5f, 0.0f);
+	//auto sphereRitem = std::make_unique<RenderItem>();
+	//sphereRitem->ObjCBIndex = 1;
+	//sphereRitem->IndexCount = mMeshGeo->DrawArgs["sphere"].IndexCount;
+	//sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//sphereRitem->StartIndexLocation = mMeshGeo->DrawArgs["sphere"].StartIndexLocation;
+	//sphereRitem->BaseVertexLocation = mMeshGeo->DrawArgs["sphere"].BaseVertexLocation;
+	//sphereRitem->Geo = mMeshGeo.get();
+	//XMStoreFloat4x4(&sphereRitem->World, sphereWorld);
 
-	mAllRitems.push_back(std::move(boxRitem));
-	mAllRitems.push_back(std::move(sphereRitem));
+	auto skullRitem = std::make_unique<RenderItem>();
+	skullRitem->ObjCBIndex = 0;
+	skullRitem->IndexCount = mMeshGeo->DrawArgs["skull"].IndexCount;
+	skullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skullRitem->StartIndexLocation = mMeshGeo->DrawArgs["skull"].StartIndexLocation;;
+	skullRitem->BaseVertexLocation = mMeshGeo->DrawArgs["skull"].BaseVertexLocation;
+	skullRitem->World = MathHelper::Identity4x4();
+	skullRitem->Geo = mMeshGeo.get();
+
+	//mAllRitems.push_back(std::move(boxRitem));
+	//mAllRitems.push_back(std::move(sphereRitem));
+
+	mAllRitems.push_back(std::move(skullRitem));
 }
 
 void DemoApp::BuildFrameResource()

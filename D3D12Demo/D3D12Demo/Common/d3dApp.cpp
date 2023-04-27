@@ -111,9 +111,18 @@ bool D3DApp::Init()
 	if (!InitD3D())
 		return false;
 
+	InitConsole();
+
 	OnResize();
 
 	return true;
+}
+
+void D3DApp::InitConsole()
+{
+	AllocConsole();
+	FILE* pFile = nullptr;
+	freopen_s(&pFile, "CONOUT$", "w", stdout);
 }
 
 bool D3DApp::InitMainWindow()

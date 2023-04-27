@@ -35,6 +35,8 @@ protected:
 protected:
 	bool InitMainWindow();
 	bool InitD3D();
+
+	void InitConsole();
 	
 	virtual void OnResize();
 
