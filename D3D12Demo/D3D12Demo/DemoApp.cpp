@@ -18,6 +18,7 @@ bool DemoApp::Init()
 
 	BuildRootSignature();
 	BuildGeometry();
+	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResource();
 	//BuildConstantBuffers();
@@ -81,6 +82,7 @@ void DemoApp::Update(const GameTimer& gt)
 	UpdateObjectCBs(gt);
 	UpdateMainPassCB(gt);
 	UpdateGeometry(gt);
+	UpdateMaterialCBs(gt);
 }
 
 void DemoApp::Draw(const GameTimer& gt)
@@ -217,6 +219,28 @@ void DemoApp::UpdateGeometry(const GameTimer& gt)
 		CurrVertexVB->CopyData(i, v);
 	}
 	mMeshGeo->VertexBufferGPU = CurrVertexVB->Resource();
+}
+
+void DemoApp::UpdateMaterialCBs(const GameTimer& gt)
+{
+	auto currMaterialCB = mCurrFrameResource->MaterialCB.get();
+	for (auto& e : mMaterials)
+	{
+		Material* mat = e.second.get();
+		if (mat->NumFrameDirty > 0)
+		{
+			XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
+
+			MaterialConstants matConstants;
+			matConstants.DiffuseAlbeda = mat->DiffuseAlbeda;
+			matConstants.FresnelR0 = mat->FresnelR0;
+			matConstants.Roughness = mat->Roughness;
+
+			currMaterialCB->CopyData(mat->MatCBIndex, matConstants);
+
+			mat->NumFrameDirty--;
+		}
+	}
 }
 
 void DemoApp::BuildRootSignature()
@@ -359,6 +383,8 @@ void DemoApp::BuildRenderItems()
 	skullRitem->World = MathHelper::Identity4x4();
 	skullRitem->Geo = mMeshGeo.get();
 
+	skullRitem->Mat = mMaterials["water"].get();
+
 	//mAllRitems.push_back(std::move(boxRitem));
 	//mAllRitems.push_back(std::move(sphereRitem));
 
@@ -369,7 +395,7 @@ void DemoApp::BuildFrameResource()
 {
 	for (int i = 0; i < gNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), 1, mAllRitems.size(), totalVertexSize));
+		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), 1, mAllRitems.size(), totalVertexSize, mMaterials.size()));
 	}
 }
 
@@ -433,6 +459,27 @@ void DemoApp::BuildConstantBuffers()
 
 }
 
+void DemoApp::BuildMaterials()
+{
+	auto grass = std::make_unique<Material>();
+	grass->Name = "grass";
+	grass->MatCBIndex = 0;
+	grass->DiffuseAlbeda = XMFLOAT4(0.2f, 0.6f, 0.2f, 1.0f);
+	grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	grass->Roughness = 0.125f;
+
+	auto water = std::make_unique<Material>();
+	water->Name = "water";
+	water->MatCBIndex = 1;
+	water->DiffuseAlbeda = XMFLOAT4(0.0f, 0.2f, 0.6f, 1.0f);
+	water->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	water->Roughness = 0.0f;
+
+	mMaterials["grass"] = std::move(grass);
+	mMaterials["water"] = std::move(water);
+
+}
+
 void DemoApp::BuildPSO()
 {
 	mInputLayout =
@@ -483,7 +530,9 @@ void DemoApp::DrawRenderItems()
 	auto objCount = (UINT)mAllRitems.size();
 
 	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
+	auto matCB = mCurrFrameResource->MaterialCB->Resource();
 	UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
+	UINT matCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(MaterialConstants));
 
 	for (UINT i = 0; i < objCount; i++)
 	{
@@ -500,8 +549,12 @@ void DemoApp::DrawRenderItems()
 		//cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
 		//mCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 		D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress();
+
 		objCBAddress += Ritem->ObjCBIndex * objCBByteSize;
+		matCBAddress += Ritem->Mat->MatCBIndex * matCBByteSize;
 		mCommandList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+		mCommandList->SetGraphicsRootConstantBufferView(1, matCBAddress);
 
 		mCommandList->DrawIndexedInstanced(Ritem->IndexCount, 1, Ritem->StartIndexLocation, Ritem->BaseVertexLocation, 0);
 	}

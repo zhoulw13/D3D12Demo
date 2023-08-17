@@ -8,8 +8,6 @@
 #include <DirectXColors.h>
 using namespace DirectX;
 
-const int gNumFrameResources = 3;
-
 struct RenderItem
 {
 	RenderItem() = default;
@@ -29,6 +27,7 @@ struct RenderItem
 	UINT ObjCBIndex = -1;
 
 	MeshGeometry* Geo = nullptr;
+	Material* Mat = nullptr;
 
 	// Primitive topology.
 	D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -58,11 +57,14 @@ protected:
 	void BuildFrameResource();
 	void BuildRenderItems();
 
+	void BuildMaterials();
+
 	void DrawRenderItems();
 
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
 	void UpdateGeometry(const GameTimer& gt);
+	void UpdateMaterialCBs(const GameTimer& gt);
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
@@ -94,4 +96,6 @@ protected:
 
 	std::vector<Vertex> vertices;
 	UINT totalVertexSize = 0;
+
+	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 };

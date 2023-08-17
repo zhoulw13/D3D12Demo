@@ -21,6 +21,9 @@
 #include <cassert>
 
 #include "d3dx12.h"
+#include "MathHelper.h"
+
+const int gNumFrameResources = 3;
 
 class DxException
 {
@@ -154,4 +157,32 @@ struct MeshGeometry
 		VertexBufferUploader = nullptr;
 		IndexBufferUploader = nullptr;
 	}
+};
+
+//cpu params
+struct Material
+{
+	std::string Name;
+
+	int MatCBIndex = -1;
+
+	int DiffuseSrvHeapIndex = -1;
+
+	int NormalSrvHeapIndex = -1;
+
+	int NumFrameDirty = gNumFrameResources;
+
+	DirectX::XMFLOAT4 DiffuseAlbeda = { 1.0f, 1.0f, 1.0f, 1.0f };
+	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	float Roughness = .25f;
+	DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
+};
+
+//gpu params
+struct MaterialConstants
+{
+	DirectX::XMFLOAT4 DiffuseAlbeda = { 1.0f, 1.0f, 1.0f, 1.0f };
+	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	float Roughness = .25f;
+	DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
 };
