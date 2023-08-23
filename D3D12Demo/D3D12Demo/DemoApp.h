@@ -61,6 +61,8 @@ protected:
 
 	void DrawRenderItems();
 
+	void OnKeyboardInput(const GameTimer& gt);
+
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
 	void UpdateGeometry(const GameTimer& gt);
@@ -98,4 +100,7 @@ protected:
 	UINT totalVertexSize = 0;
 
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
+
+	float mSunTheta = 1.25f * XM_PI;
+	float mSunPhi = XM_PIDIV4;
 };

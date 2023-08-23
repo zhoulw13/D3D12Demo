@@ -47,6 +47,8 @@ void DemoApp::OnResize()
 
 void DemoApp::Update(const GameTimer& gt)
 {
+	OnKeyboardInput(gt);
+
 	// Convert Spherical to Cartesian coordinates.
 	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
 	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
@@ -150,6 +152,24 @@ void DemoApp::Draw(const GameTimer& gt)
 }
 
 
+void DemoApp::OnKeyboardInput(const GameTimer& gt)
+{
+	const float dt = gt.DeltaTime();
+	if (GetAsyncKeyState(VK_LEFT) & 0x8000)
+		mSunTheta -= 1.0f * dt;
+
+	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
+		mSunTheta += 1.0f * dt;
+
+	if (GetAsyncKeyState(VK_UP) & 0x8000)
+		mSunPhi -= 1.0f * dt;
+
+	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
+		mSunPhi += 1.0f * dt;
+
+	mSunPhi = MathHelper::Clamp(mSunPhi, 0.1f, XM_PIDIV2);
+}
+
 void DemoApp::UpdateObjectCBs(const GameTimer& gt)
 {
 	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
@@ -204,6 +224,9 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 
 	mMainPassCB.Lights[0].Strength = { 1.0f, 1.0f, 1.0f };
+
+	XMVECTOR lightDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
+	XMStoreFloat3(&mMainPassCB.Lights[0].Direction, lightDir);
 
 	mCurrFrameResource->PassCB->CopyData(0, mMainPassCB);
 }
