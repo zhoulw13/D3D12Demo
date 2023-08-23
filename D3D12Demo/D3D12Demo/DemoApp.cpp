@@ -21,7 +21,7 @@ bool DemoApp::Init()
 	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResource();
-	//BuildConstantBuffers();
+	BuildConstantBuffers();
 	BuildPSO();
 
 	// Execute the initialization commands.
@@ -124,7 +124,7 @@ void DemoApp::Draw(const GameTimer& gt)
 	//passCbvHandle.Offset(passCbvIndex, mCbvSrvUavDescriptorSize);
 	//mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 	auto passCB = mCurrFrameResource->PassCB->Resource();
-	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
+	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
 	DrawRenderItems();
 
@@ -201,6 +201,9 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.FarZ = 1000.0f;
 	mMainPassCB.TotalTime = gt.TotalTime();
 	mMainPassCB.DeltaTime = gt.DeltaTime();
+	mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+
+	mMainPassCB.Lights[0].Strength = { 1.0f, 1.0f, 1.0f };
 
 	mCurrFrameResource->PassCB->CopyData(0, mMainPassCB);
 }
@@ -385,7 +388,7 @@ void DemoApp::BuildRenderItems()
 	skullRitem->World = MathHelper::Identity4x4();
 	skullRitem->Geo = mMeshGeo.get();
 
-	skullRitem->Mat = mMaterials["water"].get();
+	skullRitem->Mat = mMaterials["grass"].get();
 
 	//mAllRitems.push_back(std::move(boxRitem));
 	//mAllRitems.push_back(std::move(sphereRitem));
@@ -512,7 +515,7 @@ void DemoApp::BuildPSO()
 	};
 
 	D3D12_RASTERIZER_DESC rasterizerDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rasterizerDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
 
 	psoDesc.RasterizerState = rasterizerDesc;
