@@ -18,7 +18,7 @@ bool DemoApp::Init()
 
 	BuildRootSignature();
 	BuildGeometry();
-	//BuildGeometryFromFile();
+	BuildGeometryFromFile();
 	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResource();
@@ -539,16 +539,16 @@ void DemoApp::BuildRenderItems()
 		mAllRitems.push_back(std::move(rightSphereRitem));
 	}
 
-	//auto skullRitem = std::make_unique<RenderItem>();
-	//XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, 1.0f, 0.0f));
-	//skullRitem->ObjCBIndex = objCBIndex++;
-	//skullRitem->Mat = mMaterials["skullMat"].get();
-	//skullRitem->Geo = mMeshGeos["skull"].get();
-	//skullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//skullRitem->IndexCount = skullRitem->Geo->DrawArgs["skull"].IndexCount;
-	//skullRitem->StartIndexLocation = skullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
-	//skullRitem->BaseVertexLocation = skullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
-	//mAllRitems.push_back(std::move(skullRitem));
+	auto skullRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, 1.0f, 0.0f));
+	skullRitem->ObjCBIndex = objCBIndex++;
+	skullRitem->Mat = mMaterials["skullMat"].get();
+	skullRitem->Geo = mMeshGeos["skull"].get();
+	skullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skullRitem->IndexCount = skullRitem->Geo->DrawArgs["skull"].IndexCount;
+	skullRitem->StartIndexLocation = skullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
+	skullRitem->BaseVertexLocation = skullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(skullRitem));
 }
 
 void DemoApp::BuildFrameResource()
