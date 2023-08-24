@@ -8,7 +8,7 @@ enum READ_MODE
 	IDLE
 };
 
-void MeshReader::LoadFromTxt(const std::string filename, std::vector<Vertex> &vertices, std::vector<uint16_t> &indices)
+void MeshReader::LoadFromTxt(const std::string filename, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices)
 {
 	std::string line;
 	std::ifstream file(filename);
@@ -67,7 +67,7 @@ void MeshReader::LoadFromTxt(const std::string filename, std::vector<Vertex> &ve
 				}
 
 				std::stringstream ss(line);
-				uint16_t a, b, c;
+				uint32_t a, b, c;
 				ss >> a >> b >> c;
 				indices.push_back(a);
 				indices.push_back(b);

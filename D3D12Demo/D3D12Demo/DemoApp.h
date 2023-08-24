@@ -51,6 +51,7 @@ protected:
 	void OnResize() override;
 
 	void BuildGeometry();
+	void BuildGeometryFromFile();
 	void BuildConstantBuffers();
 	void BuildRootSignature();
 	void BuildPSO();
@@ -70,10 +71,8 @@ protected:
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
-	std::unique_ptr<MeshGeometry> mMeshGeo = nullptr;
 
-	UINT vbByteSize;
-	UINT ibByteSize;
+	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mMeshGeos;
 
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
@@ -95,9 +94,6 @@ protected:
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
 
 	UINT mPassCbvOffset = 0;
-
-	std::vector<Vertex> vertices;
-	UINT totalVertexSize = 0;
 
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 

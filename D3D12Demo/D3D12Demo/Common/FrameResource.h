@@ -9,7 +9,7 @@
 class FrameResource
 {
 public:
-	FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT verteCount, UINT materialCount);
+	FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount);
 	FrameResource(const FrameResource& rhs) = delete;
 	FrameResource& operator=(const FrameResource& rhs) = delete;
 	~FrameResource();
@@ -22,8 +22,6 @@ public:
 	// that reference it.  So each frame needs their own cbuffers.
 	std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
 	std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
-
-	std::unique_ptr<UploadBuffer<Vertex>> DynamicVertex = nullptr;
 
 	std::unique_ptr<UploadBuffer<MaterialConstants>> MaterialCB = nullptr;
 
