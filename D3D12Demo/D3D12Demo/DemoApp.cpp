@@ -17,15 +17,18 @@ bool DemoApp::Init()
 	// Reset the command list to prep for initialization commands.
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
+	BuildTextures();
 	BuildRootSignature();
+	BuildDescriptorHeaps();
+
 	BuildGeometry();
 	BuildGeometryFromFile();
 	BuildMaterials();
-	BuildTextures();
+
 	BuildRenderItems();
 	BuildFrameResource();
 	//BuildConstantBuffers();
-	BuildDescriptorHeaps();
+	
 	BuildPSO();
 
 	// Execute the initialization commands.
@@ -130,7 +133,7 @@ void DemoApp::Draw(const GameTimer& gt)
 	//passCbvHandle.Offset(passCbvIndex, mCbvSrvUavDescriptorSize);
 	//mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 	auto passCB = mCurrFrameResource->PassCB->Resource();
-	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
+	mCommandList->SetGraphicsRootConstantBufferView(3, passCB->GetGPUVirtualAddress());
 
 	DrawRenderItems();
 
@@ -291,24 +294,24 @@ void DemoApp::BuildRootSignature()
 	// thought of as defining the function signature.  
 
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
 
 	//// Create a single descriptor table of CBVs.
-	//CD3DX12_DESCRIPTOR_RANGE cbvTable;
-	//cbvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
 
 	//CD3DX12_DESCRIPTOR_RANGE cbvTable2;
 	//cbvTable2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
 
-	//slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable);
+	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	//slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable2);
 
-	slotRootParameter[0].InitAsConstantBufferView(0);
-	slotRootParameter[1].InitAsConstantBufferView(1);
-	slotRootParameter[2].InitAsConstantBufferView(2);
+	slotRootParameter[1].InitAsConstantBufferView(0);
+	slotRootParameter[2].InitAsConstantBufferView(1);
+	slotRootParameter[3].InitAsConstantBufferView(2);
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
@@ -465,10 +468,24 @@ void DemoApp::BuildGeometryFromFile()
 
 void DemoApp::BuildTextures()
 {
-	auto woodCrateTex = std::make_unique<Texture>();
-	woodCrateTex->Name = "woodCrateTex";
-	woodCrateTex->FileName = L"Textures/WoodCrate01.dds";
-	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), woodCrateTex->FileName.c_str(), woodCrateTex->Resource, woodCrateTex->UploadHeap);
+	auto bricksTex = std::make_unique<Texture>();
+	bricksTex->Name = "bricksTex";
+	bricksTex->FileName = L"Textures/bricks.dds";
+	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), bricksTex->FileName.c_str(), bricksTex->Resource, bricksTex->UploadHeap);
+
+	auto stoneTex = std::make_unique<Texture>();
+	stoneTex->Name = "stoneTex";
+	stoneTex->FileName = L"Textures/stone.dds";
+	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), stoneTex->FileName.c_str(), stoneTex->Resource, stoneTex->UploadHeap);
+
+	auto tileTex = std::make_unique<Texture>();
+	tileTex->Name = "tileTex";
+	tileTex->FileName = L"Textures/tile.dds";
+	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), tileTex->FileName.c_str(), tileTex->Resource, tileTex->UploadHeap);
+
+	mTextures[bricksTex->Name] = std::move(bricksTex);
+	mTextures[stoneTex->Name] = std::move(stoneTex);
+	mTextures[tileTex->Name] = std::move(tileTex);
 }
 
 void DemoApp::BuildRenderItems()
@@ -642,11 +659,34 @@ void DemoApp::BuildDescriptorHeaps()
 
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
 
-	// create shader resource view
 	auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+	auto bricksTex = mTextures["bricksTex"]->Resource;
+	auto stoneTex = mTextures["stoneTex"]->Resource;
+	auto tileTex = mTextures["tileTex"]->Resource;
+
+	// create shader resource view
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	//srvDesc.Format
+	srvDesc.Format = bricksTex->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = bricksTex->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	md3dDevice->CreateShaderResourceView(bricksTex.Get(), &srvDesc, handle);
+
+	handle.Offset(1, mCbvSrvUavDescriptorSize);
+
+	srvDesc.Format = stoneTex->GetDesc().Format;
+	srvDesc.Texture2D.MipLevels = stoneTex->GetDesc().MipLevels;
+	md3dDevice->CreateShaderResourceView(stoneTex.Get(), &srvDesc, handle);
+
+	handle.Offset(1, mCbvSrvUavDescriptorSize);
+
+	srvDesc.Format = tileTex->GetDesc().Format;
+	srvDesc.Texture2D.MipLevels = tileTex->GetDesc().MipLevels;
+	md3dDevice->CreateShaderResourceView(tileTex.Get(), &srvDesc, handle);
+
 }
 
 void DemoApp::BuildMaterials()
@@ -678,7 +718,7 @@ void DemoApp::BuildMaterials()
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
-	skullMat->DiffuseSrvHeapIndex = 3;
+	skullMat->DiffuseSrvHeapIndex = 2;
 	skullMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.3f;
@@ -756,6 +796,10 @@ void DemoApp::DrawRenderItems()
 		mCommandList->IASetIndexBuffer(&ibv);
 		mCommandList->IASetPrimitiveTopology(Ritem->PrimitiveType);
 
+		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		tex.Offset(Ritem->Mat->DiffuseSrvHeapIndex, mCbvSrvUavDescriptorSize);
+
+		mCommandList->SetGraphicsRootDescriptorTable(0, tex);
 		//UINT cbvIndex = mCurrFrameResourceIndex * objCount + (UINT)Ritem->ObjCBIndex;
 		//auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCbvHeap->GetGPUDescriptorHandleForHeapStart());
 		//cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
@@ -765,8 +809,8 @@ void DemoApp::DrawRenderItems()
 
 		objCBAddress += Ritem->ObjCBIndex * objCBByteSize;
 		matCBAddress += Ritem->Mat->MatCBIndex * matCBByteSize;
-		mCommandList->SetGraphicsRootConstantBufferView(0, objCBAddress);
-		mCommandList->SetGraphicsRootConstantBufferView(1, matCBAddress);
+		mCommandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+		mCommandList->SetGraphicsRootConstantBufferView(2, matCBAddress);
 
 		mCommandList->DrawIndexedInstanced(Ritem->IndexCount, 1, Ritem->StartIndexLocation, Ritem->BaseVertexLocation, 0);
 	}
