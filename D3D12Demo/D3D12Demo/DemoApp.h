@@ -51,8 +51,10 @@ protected:
 	void OnResize() override;
 
 	void BuildGeometry();
+	void BuildTextures();
 	void BuildGeometryFromFile();
 	void BuildConstantBuffers();
+	void BuildDescriptorHeaps();
 	void BuildRootSignature();
 	void BuildPSO();
 	void BuildFrameResource();
@@ -73,9 +75,11 @@ protected:
 
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mMeshGeos;
+	std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
+	ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource* mCurrFrameResource = nullptr;

@@ -1,5 +1,6 @@
 #include "DemoApp.h"
 #include "Common/MeshReader.h"
+#include "Common/DDSTextureLoader.h"
 
 
 DemoApp::DemoApp(HINSTANCE hInstance)
@@ -20,9 +21,11 @@ bool DemoApp::Init()
 	BuildGeometry();
 	BuildGeometryFromFile();
 	BuildMaterials();
+	BuildTextures();
 	BuildRenderItems();
 	BuildFrameResource();
 	//BuildConstantBuffers();
+	BuildDescriptorHeaps();
 	BuildPSO();
 
 	// Execute the initialization commands.
@@ -224,16 +227,19 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.DeltaTime = gt.DeltaTime();
 	mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 
-	mMainPassCB.Lights[0].Strength = { 1.0f, 1.0f, 1.0f};
+	mMainPassCB.Lights[0].Strength = { 1.0f, 1.0f, 1.0f };
+	mMainPassCB.Lights[0].Position = { -5.0f, 3.5f, -10.0f };
 
 	XMVECTOR lightDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&mMainPassCB.Lights[0].Direction, lightDir);
 
 	mMainPassCB.Lights[1].Strength = { 1.0f, 1.0f, 1.0f };
 	mMainPassCB.Lights[1].Direction = { 1.0f, 0.0f, 0.0f };
+	mMainPassCB.Lights[1].Position = { 5.0f, 3.5f, -10.0f };
 
 	mMainPassCB.Lights[2].Strength = { 1.0f, 1.0f, 1.0f };
 	mMainPassCB.Lights[2].Direction = { 0.0f, 0.0f, 1.0f };
+	mMainPassCB.Lights[1].Position = { -5.0f, 3.5f, 15.0f };
 
 	mCurrFrameResource->PassCB->CopyData(0, mMainPassCB);
 }
@@ -457,6 +463,14 @@ void DemoApp::BuildGeometryFromFile()
 	mMeshGeos[geo->Name] = std::move(geo);
 }
 
+void DemoApp::BuildTextures()
+{
+	auto woodCrateTex = std::make_unique<Texture>();
+	woodCrateTex->Name = "woodCrateTex";
+	woodCrateTex->FileName = L"Textures/WoodCrate01.dds";
+	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), woodCrateTex->FileName.c_str(), woodCrateTex->Resource, woodCrateTex->UploadHeap);
+}
+
 void DemoApp::BuildRenderItems()
 {
 	auto boxRitem = std::make_unique<RenderItem>();
@@ -619,6 +633,22 @@ void DemoApp::BuildConstantBuffers()
 
 }
 
+void DemoApp::BuildDescriptorHeaps()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 3;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
+
+	// create shader resource view
+	auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	//srvDesc.Format
+}
+
 void DemoApp::BuildMaterials()
 {
 	auto bricks0 = std::make_unique<Material>();
@@ -666,7 +696,8 @@ void DemoApp::BuildPSO()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		//{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	mvsByteCode = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "VS", "vs_5_0");

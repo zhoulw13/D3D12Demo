@@ -159,6 +159,16 @@ struct MeshGeometry
 	}
 };
 
+struct Texture
+{
+	std::string Name;
+
+	std::wstring FileName;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
+};
+
 //cpu params
 struct Material
 {
