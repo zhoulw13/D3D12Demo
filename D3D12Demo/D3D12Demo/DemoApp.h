@@ -64,6 +64,9 @@ protected:
 
 	void DrawRenderItems();
 
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 1> GetStaticSamplers();
+
+
 	void OnKeyboardInput(const GameTimer& gt);
 
 	void UpdateObjectCBs(const GameTimer& gt);
