@@ -1,5 +1,5 @@
 #ifndef NUM_DIR_LIGHTS
-  #define NUM_DIR_LIGHTS 0
+  #define NUM_DIR_LIGHTS 3
 #endif
 
 #ifndef NUM_POINT_LIGHTS
@@ -7,7 +7,7 @@
 #endif
 
 #ifndef NUM_SPOT_LIGHTS
-  #define NUM_SPOT_LIGHTS 3
+  #define NUM_SPOT_LIGHTS 0
 #endif
 
 #include "LightingUtil.hlsl"
@@ -19,6 +19,7 @@ SamplerState gsamPointWrap : register(s0);
 cbuffer cbPerObject : register(b0)
 {
 	float4x4 gWorld;
+	float4x4 gTexTransform;
 };
 
 cbuffer cbMaterial : register(b1)
@@ -76,7 +77,8 @@ VertexOut VS(VertexIn vin)
 
 	vout.PosH = mul(posW, gViewProj);
 
-	vout.TexC = mul(vin.TexC, gMatTransform).xy;
+	float4 texC = mul(float4(vin.TexC, 0.0f, 1.0f), gTexTransform);
+	vout.TexC = mul(texC, gMatTransform).xy;
 
 	return vout;
 }
