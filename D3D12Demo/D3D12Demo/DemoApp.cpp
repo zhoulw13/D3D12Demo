@@ -90,6 +90,7 @@ void DemoApp::Update(const GameTimer& gt)
 
 	UpdateObjectCBs(gt);
 	UpdateMainPassCB(gt);
+	UpdateReflectedPassCB(gt);
 	//UpdateGeometry(gt);
 	UpdateMaterialCBs(gt);
 }
@@ -104,7 +105,7 @@ void DemoApp::Draw(const GameTimer& gt)
 
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
 	// Reusing the command list reuses memory.
-	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSO.Get()));
+	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
 	mCommandList->RSSetViewports(1, &mScreenViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
@@ -134,7 +135,23 @@ void DemoApp::Draw(const GameTimer& gt)
 	auto passCB = mCurrFrameResource->PassCB->Resource();
 	mCommandList->SetGraphicsRootConstantBufferView(3, passCB->GetGPUVirtualAddress());
 
-	DrawRenderItems();
+	//Draw Opaque
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::Opaque]);
+
+	//Draw Mirror
+	mCommandList->OMSetStencilRef(1);
+	mCommandList->SetPipelineState(mPSOs["markStencilMirrors"].Get());
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::Mirrors]);
+
+	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+
+	mCommandList->SetGraphicsRootConstantBufferView(3, passCB->GetGPUVirtualAddress() + 1 * passCBByteSize);
+	mCommandList->SetPipelineState(mPSOs["drawStencilReflections"].Get());
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::Reflected]);
+
+	mCommandList->OMSetStencilRef(0);
+	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	DrawRenderItems(mRitemLayer[(int)RenderLayer::Transparent]);
 
 	// Indicate a state transition on the resource usage.
 	Barriers = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -214,8 +231,6 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	XMMATRIX invProj = XMMatrixInverse(&projDeterminant, proj);
 	XMMATRIX invViewProj = XMMatrixInverse(&viewProjDeterminant, viewProj);
 
-	PassConstants mMainPassCB;
-
 	XMStoreFloat4x4(&mMainPassCB.View, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&mMainPassCB.InvView, XMMatrixTranspose(invView));
 	XMStoreFloat4x4(&mMainPassCB.Proj, XMMatrixTranspose(proj));
@@ -246,6 +261,27 @@ void DemoApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Position = { -5.0f, 3.5f, 15.0f };
 
 	mCurrFrameResource->PassCB->CopyData(0, mMainPassCB);
+}
+
+void DemoApp::UpdateReflectedPassCB(const GameTimer& gt)
+{
+	mReflectedPassCB = mMainPassCB;
+
+	XMVECTOR mirrorPlane = XMVectorSet(-1.0f, 0.0f, 0.0f, 10.0f); // yz plane
+	XMMATRIX R = XMMatrixReflect(mirrorPlane);
+
+	// Reflect the lighting.
+	for (int i = 0; i < 3; ++i)
+	{
+		XMVECTOR lightDir = XMLoadFloat3(&mMainPassCB.Lights[i].Direction);
+		XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
+		XMStoreFloat3(&mReflectedPassCB.Lights[i].Direction, reflectedLightDir);
+	}
+
+	// Reflected pass stored in index 1
+	auto currPassCB = mCurrFrameResource->PassCB.get();
+	mCurrFrameResource->PassCB->CopyData(1, mReflectedPassCB);
+
 }
 
 void DemoApp::UpdateGeometry(const GameTimer& gt)
@@ -338,16 +374,20 @@ void DemoApp::BuildGeometry()
 	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
 	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
 
+	GeometryGenerator::MeshData mirror = geoGen.CreateGrid(10.0f, 10.0f, 2, 2);
+
 	UINT boxVertexOffset = 0;
 	UINT gridVertexOffset = (UINT)box.Vertices.size();
 	UINT sphereVertexOffset = gridVertexOffset + (UINT)grid.Vertices.size();
 	UINT cylinderVertexOffset = sphereVertexOffset + (UINT)sphere.Vertices.size();
+	UINT mirrorVertexOffset = cylinderVertexOffset + (UINT)cylinder.Vertices.size();
 
 	// Cache the starting index for each object in the concatenated index buffer.
 	UINT boxIndexOffset = 0;
 	UINT gridIndexOffset = (UINT)box.Indices32.size();
 	UINT sphereIndexOffset = gridIndexOffset + (UINT)grid.Indices32.size();
 	UINT cylinderIndexOffset = sphereIndexOffset + (UINT)sphere.Indices32.size();
+	UINT mirrorIndexOffset = cylinderIndexOffset + (UINT)cylinder.Indices32.size();
 
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
@@ -369,10 +409,16 @@ void DemoApp::BuildGeometry()
 	cylinderSubmesh.StartIndexLocation = cylinderIndexOffset;
 	cylinderSubmesh.BaseVertexLocation = cylinderVertexOffset;
 
+	SubmeshGeometry mirrorSubmesh;
+	mirrorSubmesh.IndexCount = (UINT)mirror.Indices32.size();
+	mirrorSubmesh.StartIndexLocation = mirrorIndexOffset;
+	mirrorSubmesh.BaseVertexLocation = mirrorVertexOffset;
+
 	UINT totalVertexSize = box.Vertices.size() +
 		grid.Vertices.size() +
 		sphere.Vertices.size() +
-		cylinder.Vertices.size();
+		cylinder.Vertices.size() +
+		mirror.Vertices.size();
 
 	std::vector<Vertex> vertices(totalVertexSize);
 	UINT k = 0;
@@ -403,6 +449,13 @@ void DemoApp::BuildGeometry()
 		vertices[k].Normal = cylinder.Vertices[i].Normal;
 		vertices[k].TexCoord = cylinder.Vertices[i].TexC;
 	}
+
+	for (size_t i = 0; i < mirror.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = mirror.Vertices[i].Position;
+		vertices[k].Normal = mirror.Vertices[i].Normal;
+		vertices[k].TexCoord = mirror.Vertices[i].TexC;
+	}
 	//vertices.insert(vertices.end(), skullVertices.begin(), skullVertices.end());
 
 	std::vector<std::uint16_t> indices;
@@ -410,6 +463,8 @@ void DemoApp::BuildGeometry()
 	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
 	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 	indices.insert(indices.end(), std::begin(cylinder.GetIndices16()), std::end(cylinder.GetIndices16()));
+	indices.insert(indices.end(), std::begin(mirror.GetIndices16()), std::end(mirror.GetIndices16()));
+
 	//indices.insert(indices.end(), skullIndices.begin(), skullIndices.end());
 
 	auto geo = std::make_unique<MeshGeometry>();
@@ -436,6 +491,9 @@ void DemoApp::BuildGeometry()
 	geo->DrawArgs["grid"] = gridSubmesh;
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
+	geo->DrawArgs["mirror"] = mirrorSubmesh;
+
+	//geo->DrawArgs["mirror"]
 
 	mMeshGeos[geo->Name] = std::move(geo);
 	//mMeshGeo->DrawArgs["skull"] = skullSubmesh;
@@ -490,13 +548,21 @@ void DemoApp::BuildTextures()
 	tileTex->FileName = L"Textures/tile.dds";
 	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), tileTex->FileName.c_str(), tileTex->Resource, tileTex->UploadHeap);
 
+	auto mirrorTex = std::make_unique<Texture>();
+	mirrorTex->Name = "mirrorTex";
+	mirrorTex->FileName = L"Textures/ice.dds";
+	DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(), mCommandList.Get(), mirrorTex->FileName.c_str(), mirrorTex->Resource, mirrorTex->UploadHeap);
+
 	mTextures[bricksTex->Name] = std::move(bricksTex);
 	mTextures[stoneTex->Name] = std::move(stoneTex);
 	mTextures[tileTex->Name] = std::move(tileTex);
+	mTextures[mirrorTex->Name] = std::move(mirrorTex);
 }
 
 void DemoApp::BuildRenderItems()
 {
+	XMMATRIX R = XMMatrixReflect(mirrorPlane);
+
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 1.5f, 0.0f));
 	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(-0.5f, -0.5f, 0.0f));
@@ -507,6 +573,7 @@ void DemoApp::BuildRenderItems()
 	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
 	mAllRitems.push_back(std::move(boxRitem));
 
 	auto gridRitem = std::make_unique<RenderItem>();
@@ -519,6 +586,7 @@ void DemoApp::BuildRenderItems()
 	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
 	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
 	mAllRitems.push_back(std::move(gridRitem));
 
 	XMMATRIX brickTexTransform = XMMatrixScaling(1.0f, 1.0f, 1.0f);
@@ -576,14 +644,55 @@ void DemoApp::BuildRenderItems()
 		rightSphereRitem->StartIndexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
 		rightSphereRitem->BaseVertexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
 
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(leftCylRitem.get());
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(rightCylRitem.get());
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(leftSphereRitem.get());
+		mRitemLayer[(int)RenderLayer::Opaque].push_back(rightSphereRitem.get());
+
+
+		auto reflectedleftCylRitem = std::make_unique<RenderItem>();
+		*reflectedleftCylRitem = *leftCylRitem;
+		reflectedleftCylRitem->ObjCBIndex = objCBIndex++;
+		// Update reflection world matrix.
+		XMStoreFloat4x4(&reflectedleftCylRitem->World, leftCylWorld * R);
+
+		auto reflectedrightCylRitem = std::make_unique<RenderItem>();
+		*reflectedrightCylRitem = *rightCylRitem;
+		reflectedrightCylRitem->ObjCBIndex = objCBIndex++;
+		// Update reflection world matrix.
+		XMStoreFloat4x4(&reflectedrightCylRitem->World, rightCylWorld * R);
+
+		auto reflectedleftSphereRitem = std::make_unique<RenderItem>();
+		*reflectedleftSphereRitem = *leftSphereRitem;
+		reflectedleftSphereRitem->ObjCBIndex = objCBIndex++;
+		// Update reflection world matrix.
+		XMStoreFloat4x4(&reflectedleftSphereRitem->World, leftSphereWorld * R);
+
+		auto reflectedrightSphereRitem = std::make_unique<RenderItem>();
+		*reflectedrightSphereRitem = *rightSphereRitem;
+		reflectedrightSphereRitem->ObjCBIndex = objCBIndex++;
+		// Update reflection world matrix.
+		XMStoreFloat4x4(&reflectedrightSphereRitem->World, rightSphereWorld * R);
+
+		mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedleftCylRitem.get());
+		mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedrightCylRitem.get());
+		mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedleftSphereRitem.get());
+		mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedrightSphereRitem.get());
+
 		mAllRitems.push_back(std::move(leftCylRitem));
 		mAllRitems.push_back(std::move(rightCylRitem));
 		mAllRitems.push_back(std::move(leftSphereRitem));
 		mAllRitems.push_back(std::move(rightSphereRitem));
+
+		mAllRitems.push_back(std::move(reflectedleftCylRitem));
+		mAllRitems.push_back(std::move(reflectedrightCylRitem));
+		mAllRitems.push_back(std::move(reflectedleftSphereRitem));
+		mAllRitems.push_back(std::move(reflectedrightSphereRitem));
 	}
 
 	auto skullRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, 3.0f, 0.0f));
+	XMMATRIX skullWorld = XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, 3.0f, 0.0f);
+	XMStoreFloat4x4(&skullRitem->World, skullWorld);
 	skullRitem->ObjCBIndex = objCBIndex++;
 	skullRitem->Mat = mMaterials["skullMat"].get();
 	skullRitem->Geo = mMeshGeos["skull"].get();
@@ -591,7 +700,36 @@ void DemoApp::BuildRenderItems()
 	skullRitem->IndexCount = skullRitem->Geo->DrawArgs["skull"].IndexCount;
 	skullRitem->StartIndexLocation = skullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
 	skullRitem->BaseVertexLocation = skullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(skullRitem.get());
+	
+
+	auto reflectedSkullRitem = std::make_unique<RenderItem>();
+	*reflectedSkullRitem = *skullRitem;
+	reflectedSkullRitem->ObjCBIndex = objCBIndex++;
+	// Update reflection world matrix.
+	XMStoreFloat4x4(&reflectedSkullRitem->World, skullWorld * R);
+
+	mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedSkullRitem.get());
+
+
+	auto mirrorRitem = std::make_unique<RenderItem>();
+	mirrorRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&mirrorRitem->World, XMMatrixRotationZ(MathHelper::Pi / 2) * XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(10.0f, 3.0f, 0.0f));
+	mirrorRitem->ObjCBIndex = objCBIndex++;
+	mirrorRitem->Mat = mMaterials["mirror"].get();
+	mirrorRitem->Geo = mMeshGeos["geo"].get();
+	mirrorRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	mirrorRitem->IndexCount = mirrorRitem->Geo->DrawArgs["mirror"].IndexCount;
+	mirrorRitem->StartIndexLocation = mirrorRitem->Geo->DrawArgs["mirror"].StartIndexLocation;
+	mirrorRitem->BaseVertexLocation = mirrorRitem->Geo->DrawArgs["mirror"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Mirrors].push_back(mirrorRitem.get());
+	mRitemLayer[(int)RenderLayer::Transparent].push_back(mirrorRitem.get());
+
+
 	mAllRitems.push_back(std::move(skullRitem));
+	mAllRitems.push_back(std::move(reflectedSkullRitem));
+	mAllRitems.push_back(std::move(mirrorRitem));
+
 }
 
 void DemoApp::BuildFrameResource()
@@ -665,7 +803,7 @@ void DemoApp::BuildConstantBuffers()
 void DemoApp::BuildDescriptorHeaps()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 3;
+	srvHeapDesc.NumDescriptors = 4;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -676,6 +814,7 @@ void DemoApp::BuildDescriptorHeaps()
 	auto bricksTex = mTextures["bricksTex"]->Resource;
 	auto stoneTex = mTextures["stoneTex"]->Resource;
 	auto tileTex = mTextures["tileTex"]->Resource;
+	auto mirrorTex = mTextures["mirrorTex"]->Resource;
 
 	// create shader resource view
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -698,6 +837,13 @@ void DemoApp::BuildDescriptorHeaps()
 	srvDesc.Format = tileTex->GetDesc().Format;
 	srvDesc.Texture2D.MipLevels = tileTex->GetDesc().MipLevels;
 	md3dDevice->CreateShaderResourceView(tileTex.Get(), &srvDesc, hDescriptor);
+
+
+	hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+
+	srvDesc.Format = tileTex->GetDesc().Format;
+	srvDesc.Texture2D.MipLevels = mirrorTex->GetDesc().MipLevels;
+	md3dDevice->CreateShaderResourceView(mirrorTex.Get(), &srvDesc, hDescriptor);
 
 }
 
@@ -735,11 +881,20 @@ void DemoApp::BuildMaterials()
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.3f;
 
+	auto mirrorMat = std::make_unique<Material>();
+	mirrorMat->Name = "mirror";
+	mirrorMat->MatCBIndex = 4;
+	mirrorMat->DiffuseSrvHeapIndex = 3;
+	mirrorMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.3f);
+	mirrorMat->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	mirrorMat->Roughness = 0.5f;
+
+
 	mMaterials["bricks0"] = std::move(bricks0);
 	mMaterials["stone0"] = std::move(stone0);
 	mMaterials["tile0"] = std::move(tile0);
 	mMaterials["skullMat"] = std::move(skullMat);
-
+	mMaterials["mirror"] = std::move(mirrorMat);
 }
 
 void DemoApp::BuildPSO()
@@ -786,12 +941,86 @@ void DemoApp::BuildPSO()
 	psoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
 	psoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
 	psoDesc.DSVFormat = mDepthStencilFormat;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO)));
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
+
+	// PSOs for mirror reflection
+	CD3DX12_BLEND_DESC mirrorBlendState(D3D12_DEFAULT);
+	mirrorBlendState.RenderTarget[0].RenderTargetWriteMask = 0;
+
+	D3D12_DEPTH_STENCIL_DESC mirrorDSS;
+	mirrorDSS.DepthEnable = true;
+	mirrorDSS.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	mirrorDSS.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	mirrorDSS.StencilEnable = true;
+	mirrorDSS.StencilReadMask = 0xff;
+	mirrorDSS.StencilWriteMask = 0xff;
+
+	mirrorDSS.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	mirrorDSS.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	mirrorDSS.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
+	mirrorDSS.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+	// We are not rendering backfacing polygons, so these settings do not matter.
+	mirrorDSS.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	mirrorDSS.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	mirrorDSS.BackFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
+	mirrorDSS.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC markMirrorsPsoDesc = psoDesc;
+	markMirrorsPsoDesc.BlendState = mirrorBlendState;
+	markMirrorsPsoDesc.DepthStencilState = mirrorDSS;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&markMirrorsPsoDesc, IID_PPV_ARGS(&mPSOs["markStencilMirrors"])));
+
+
+
+	D3D12_DEPTH_STENCIL_DESC reflectionsDSS;
+	reflectionsDSS.DepthEnable = true;
+	reflectionsDSS.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	reflectionsDSS.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	reflectionsDSS.StencilEnable = true;
+	reflectionsDSS.StencilReadMask = 0xff;
+	reflectionsDSS.StencilWriteMask = 0xff;
+
+	reflectionsDSS.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+
+	// We are not rendering backfacing polygons, so these settings do not matter.
+	reflectionsDSS.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	reflectionsDSS.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC drawReflectionsPsoDesc = psoDesc;
+	drawReflectionsPsoDesc.DepthStencilState = reflectionsDSS;
+	drawReflectionsPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	drawReflectionsPsoDesc.RasterizerState.FrontCounterClockwise = true;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&drawReflectionsPsoDesc, IID_PPV_ARGS(&mPSOs["drawStencilReflections"])));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = psoDesc;
+
+	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+	transparencyBlendDesc.BlendEnable = true;
+	transparencyBlendDesc.LogicOpEnable = false;
+	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
+
+
 }
 
-void DemoApp::DrawRenderItems()
+void DemoApp::DrawRenderItems(const std::vector<RenderItem*>& ritems)
 {
-	auto objCount = (UINT)mAllRitems.size();
+	auto objCount = (UINT)ritems.size();
 
 	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
@@ -800,7 +1029,7 @@ void DemoApp::DrawRenderItems()
 
 	for (UINT i = 0; i < objCount; i++)
 	{
-		auto Ritem = mAllRitems[i].get();
+		auto Ritem = ritems[i];
 		D3D12_VERTEX_BUFFER_VIEW vbv = Ritem->Geo->VertexBufferView();
 		D3D12_INDEX_BUFFER_VIEW ibv = Ritem->Geo->IndexBufferView();
 

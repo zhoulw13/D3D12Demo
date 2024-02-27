@@ -11,6 +11,15 @@
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 
+enum class RenderLayer : int
+{
+	Opaque = 0,
+	Mirrors,
+	Reflected,
+	Transparent,
+	Count
+};
+
 class D3DApp
 {
 public:

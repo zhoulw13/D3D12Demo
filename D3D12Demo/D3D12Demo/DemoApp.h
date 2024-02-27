@@ -64,7 +64,7 @@ protected:
 
 	void BuildMaterials();
 
-	void DrawRenderItems();
+	void DrawRenderItems(const std::vector<RenderItem*>& ritems);
 
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 1> GetStaticSamplers();
 
@@ -73,6 +73,7 @@ protected:
 
 	void UpdateObjectCBs(const GameTimer& gt);
 	void UpdateMainPassCB(const GameTimer& gt);
+	void UpdateReflectedPassCB(const GameTimer& gt);
 	void UpdateGeometry(const GameTimer& gt);
 	void UpdateMaterialCBs(const GameTimer& gt);
 
@@ -81,6 +82,7 @@ protected:
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mMeshGeos;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
+	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;
@@ -90,10 +92,11 @@ protected:
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
 
+	PassConstants mMainPassCB;
+	PassConstants mReflectedPassCB;
+
 	ComPtr<ID3DBlob> mvsByteCode = nullptr;
 	ComPtr<ID3DBlob> mpsByteCode = nullptr;
-
-	ComPtr<ID3D12PipelineState> mPSO = nullptr;
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT4X4 mWorld = MathHelper::Identity4x4();
@@ -101,6 +104,7 @@ protected:
 	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
+	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 
 	UINT mPassCbvOffset = 0;
 
@@ -108,4 +112,6 @@ protected:
 
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
+
+	XMVECTOR mirrorPlane = XMVectorSet(-1.0f, 0.0f, 0.0f, 10.0f); // yz plane
 };
